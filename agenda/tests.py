@@ -2,52 +2,67 @@ from rest_framework.test import APITestCase
 import json
 from datetime import datetime, timezone
 from agenda.models import Agendamento
+from django.contrib.auth.models import User
 
 class TestListagemAgendamentos(APITestCase):
     def test_listagem_vazia(self):
-        response = self.client.get("/api/agendamentos/")
+        user = User.objects.create(email="bob@email.com", username="bob", password="123")
+        self.client.force_authenticate(user)
+        response = self.client.get("/api/agendamentos/?username=bob")
         data = json.loads(response.content)
         self.assertEqual(data, [])
     
     def test_listagem_de_agendamentos_criados(self):
+        user = User.objects.create(email="bob@email.com", username="bob", password="123")
+        self.client.force_authenticate(user)
+
         Agendamento.objects.create(
             data_horario=datetime(2099,3,15,17,30, tzinfo=timezone.utc),
             nome_cliente = "Teste",
             email_cliente = "teste@teste.com",
             telefone_cliente = "4899999999",
+            prestador = user
         )
 
         Agendamento_serializado = {
             "id" : 1,
+            "prestador" : "bob",
             "data_horario": "2099-03-15T17:30:00Z",
             "nome_cliente" : "Teste",
             "email_cliente" : "teste@teste.com",
             "telefone_cliente" : "4899999999",
+            "cancelado" : False
+            
         }
 
-        response = self.client.get("/api/agendamentos/")
+        response = self.client.get("/api/agendamentos/?username=bob")
         data = json.loads(response.content)
         self.assertDictEqual(data[0], Agendamento_serializado)
     
 class TestCriacaoAgendamento(APITestCase):
     def test_cria_agendamento(self):
+        user = User.objects.create(email="bob@email.com", username="bob", password="123")
+        self.client.force_authenticate(user)
         data =  {
             "data_horario": datetime(2099, 5, 1),
             "nome_cliente" : "Teste",
             "email_cliente" : "teste@teste.com",
             "telefone_cliente" : "4899999999",
+            "prestador" : "bob",
         }
 
         Agendamento_serializado = {
             "id" : 1,
+            "prestador" : "bob",
             "data_horario": "2099-05-01T00:00:00Z",
             "nome_cliente" : "Teste",
             "email_cliente" : "teste@teste.com",
             "telefone_cliente" : "4899999999",
+            "cancelado" : False,
         }
 
         response_post = self.client.post("/api/agendamentos/", data, format='json')
-        response_get = self.client.get("/api/agendamentos/")
+        response_get = self.client.get("/api/agendamentos/?username=bob")
         data = json.loads(response_get.content)
 
         self.assertEqual(data[0], Agendamento_serializado)
@@ -63,19 +78,25 @@ class TestCriacaoAgendamento(APITestCase):
 
 class TestDetalharAgendamento(APITestCase):
     def test_detalhar_agendamento(self):
+        user = User.objects.create(email="bob@email.com", username="bob", password="123")
+        self.client.force_authenticate(user)
         data = {
                 "data_horario": datetime(2099, 5, 1),
                 "nome_cliente" : "Teste",
                 "email_cliente" : "teste@teste.com",
                 "telefone_cliente" : "4899999999",
+                "prestador" : "bob"
         }
 
         Agendamento_serializado = {
             "id" : 1,
+            "prestador" : "bob",
             "data_horario": "2099-05-01T00:00:00Z",
             "nome_cliente" : "Teste",
             "email_cliente" : "teste@teste.com",
             "telefone_cliente" : "4899999999",
+            "cancelado" : False,
+            
         }
         response_post = self.client.post("/api/agendamentos/", data, format='json')
         response_get = self.client.get("/api/agendamentos/1/")
@@ -83,20 +104,27 @@ class TestDetalharAgendamento(APITestCase):
         self.assertDictEqual(data, Agendamento_serializado)
 
     def test_editar_agendamento(self):
+        user = User.objects.create(email="bob@email.com", username="bob", password="123")
+        self.client.force_authenticate(user)
         data = {
                "data_horario": datetime(2099, 5, 1),
                "nome_cliente" : "Teste",
                "email_cliente" : "teste@teste.com",
                "telefone_cliente" : "4899999999",
+               "prestador" : "bob",
         }
         edicao_agendamento = {"nome_cliente" : "Teste2"}
+
         Agendamento_serializado = {
             "id" : 1,
+            "prestador" : "bob",
             "data_horario": "2099-05-01T00:00:00Z",
             "nome_cliente" : "Teste2",
             "email_cliente" : "teste@teste.com",
             "telefone_cliente" : "4899999999",
+            "cancelado" : False,
         }
+
         response_post = self.client.post("/api/agendamentos/", data, format='json')
         response_patch = self.client.patch("/api/agendamentos/1/", edicao_agendamento, format='json')
         response_get = self.client.get("/api/agendamentos/1/")
@@ -104,11 +132,14 @@ class TestDetalharAgendamento(APITestCase):
         self.assertDictEqual(data, Agendamento_serializado)
     
     def test_cancelar_agendamento(self):
+        user = User.objects.create(email="bob@email.com", username="bob", password="123")
+        self.client.force_authenticate(user)
         data = {
             "data_horario": datetime(2099, 5, 1),
             "nome_cliente" : "Teste",
             "email_cliente" : "teste@teste.com",
             "telefone_cliente" : "4899999999",
+            "prestador" : "bob",
         }
         response_post = self.client.post("/api/agendamentos/", data, format='json')
         response_delete = self.client.patch("/api/agendamentos/1/")
@@ -117,3 +148,21 @@ class TestDetalharAgendamento(APITestCase):
         obj.save()
 
         self.assertEqual(obj.cancelado, True)
+
+class TesteListagemAgendamentos(APITestCase):
+    def test_listagem(self):
+        user = User.objects.create(email="alice@email.com", username="alice", password="123")
+        self.client.force_authenticate(user)
+
+        data = {
+            "data_horario": datetime(2099, 5, 1),
+            "nome_cliente" : "Teste",
+            "email_cliente" : "teste@teste.com",
+            "telefone_cliente" : "4899999999",
+            "prestador" : "bob",
+        }
+
+        response_post = self.client.post("/api/agendamentos/", data, format='json')
+        response = self.client.get("/api/agendamentos/?username=bob")
+
+        self.assertEqual(response.content, b'{"detail":"You do not have permission to perform this action."}')
