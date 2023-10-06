@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 from agenda.models import Agendamento
 from django.contrib.auth.models import User
+from unittest import mock
 
 class TestListagemAgendamentos(APITestCase):
     def test_listagem_vazia(self):
@@ -38,6 +39,23 @@ class TestListagemAgendamentos(APITestCase):
         response = self.client.get("/api/agendamentos/?username=bob")
         data = json.loads(response.content)
         self.assertDictEqual(data[0], Agendamento_serializado)
+    
+    def test_listagem(self):
+        user = User.objects.create(email="alice@email.com", username="alice", password="123")
+        self.client.force_authenticate(user)
+
+        data = {
+            "data_horario": datetime(2099, 5, 1),
+            "nome_cliente" : "Teste",
+            "email_cliente" : "teste@teste.com",
+            "telefone_cliente" : "4899999999",
+            "prestador" : "bob",
+        }
+
+        response_post = self.client.post("/api/agendamentos/", data, format='json')
+        response = self.client.get("/api/agendamentos/?username=bob")
+
+        self.assertEqual(response.content, b'{"detail":"You do not have permission to perform this action."}')
     
 class TestCriacaoAgendamento(APITestCase):
     def test_cria_agendamento(self):
@@ -149,20 +167,13 @@ class TestDetalharAgendamento(APITestCase):
 
         self.assertEqual(obj.cancelado, True)
 
-class TesteListagemAgendamentos(APITestCase):
-    def test_listagem(self):
-        user = User.objects.create(email="alice@email.com", username="alice", password="123")
-        self.client.force_authenticate(user)
+class TestGetHorarios(APITestCase):
+    @mock.patch("agenda.libs.brasil_api.is_feriado", return_value=True)
+    def test_quando_data_e_feriado_retorna_lista_vazia(self, _):
+        response = self.client.get("/api/horarios/?data=2023-12-25")
+        self.assertEqual(response.content, b'[]')
 
-        data = {
-            "data_horario": datetime(2099, 5, 1),
-            "nome_cliente" : "Teste",
-            "email_cliente" : "teste@teste.com",
-            "telefone_cliente" : "4899999999",
-            "prestador" : "bob",
-        }
-
-        response_post = self.client.post("/api/agendamentos/", data, format='json')
-        response = self.client.get("/api/agendamentos/?username=bob")
-
-        self.assertEqual(response.content, b'{"detail":"You do not have permission to perform this action."}')
+    @mock.patch("agenda.libs.brasil_api.is_feriado", return_value=False)
+    def test_quando_data_e_dia_comum_retorna_lista_com_horario(self, _):
+        response = self.client.get("/api/horarios/?data=2023-10-03")
+        self.assertNotEqual(response.content, b'[]')

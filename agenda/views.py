@@ -66,7 +66,4 @@ def listar_horarios(request):
 
     horarios_disponiveis = sorted(list(get_horarios(data)))
 
-    if horarios_disponiveis == []:
-        return JsonResponse({"erro" : "Não é possível agendar em um feriado"})
-    else:
-        return JsonResponse(horarios_disponiveis, safe=False)
+    return JsonResponse(horarios_disponiveis, safe=False)
