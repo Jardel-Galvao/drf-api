@@ -2,13 +2,14 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from agenda.serializers import AgendamentoSerializer, PrestadorSerializer
 from agenda.models import Agendamento
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework import  generics, permissions
-from django.contrib.auth.models import User
+from rest_framework.response import Response
 from datetime import datetime
 from agenda.utils import get_horarios
-import requests
-
+from agenda.tasks import gera_relatorio_prestadores
+from django.http import HttpResponse
+from django.contrib.auth.models import User
 
 
 class IsOwnerOrCreateOnly(permissions.BasePermission):
@@ -49,11 +50,21 @@ class AgendamentoDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Agendamento.objects.all()
     serializer_class = AgendamentoSerializer
 
-class PrestadorList(generics.ListAPIView):
-    serializer_class = PrestadorSerializer
-    queryset = User.objects.all()
-    permission_classes = [IsAdminUser]
-
+@api_view(http_method_names=["GET"])
+@permission_classes([permissions.IsAdminUser])
+def prestador_list(request):
+    if request.query_params.get("formato") == "csv":
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={'Content-Disposition': 'attachment; filename="prestadores.csv"'},
+        )
+        result = gera_relatorio_prestadores.delay()
+        return Response({"task_id" : result.task_id})
+    else:
+        obj = User.objects.all()
+        serializer = PrestadorSerializer(obj, many=True)
+        return Response(serializer.data)
+    
 
 @api_view(http_method_names=["GET"])
 def listar_horarios(request):
