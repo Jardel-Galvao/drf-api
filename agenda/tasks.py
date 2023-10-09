@@ -3,9 +3,10 @@ from io import StringIO
 from agenda.serializers import PrestadorSerializer
 from django.contrib.auth.models import User
 from tamarcado.celery import app
+from django.core.mail import EmailMessage
 
 @app.task
-def gera_relatorio_prestadores():
+def gerar_relatorio() -> StringIO:
     output =StringIO()
     writer = csv.writer(output)
     writer.writerow([
@@ -27,3 +28,16 @@ def gera_relatorio_prestadores():
                 agendamento['email_cliente'],
                 agendamento["cancelado"],
             ])
+    envia_email_com_anexo(output)
+
+@app.task
+def envia_email_com_anexo(anexo):
+    email = EmailMessage(
+        'tamarcado-Relatório de prestadores',
+        'Em anexo o relatório solicitado.',
+        'jardelgalvao1@gmail.com',
+        ['jardelgalvao1@gmail.com'],
+    )
+
+    email.attach("relatorio.csv", anexo.getvalue(), "text/csv")
+    email.send()

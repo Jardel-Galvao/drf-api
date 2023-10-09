@@ -7,7 +7,7 @@ from rest_framework import  generics, permissions
 from rest_framework.response import Response
 from datetime import datetime
 from agenda.utils import get_horarios
-from agenda.tasks import gera_relatorio_prestadores
+from agenda.tasks import gerar_relatorio, envia_email_com_anexo
 from django.http import HttpResponse
 from django.contrib.auth.models import User
 
@@ -58,7 +58,7 @@ def prestador_list(request):
             content_type='text/csv',
             headers={'Content-Disposition': 'attachment; filename="prestadores.csv"'},
         )
-        result = gera_relatorio_prestadores.delay()
+        result = gerar_relatorio.delay()
         return Response({"task_id" : result.task_id})
     else:
         obj = User.objects.all()

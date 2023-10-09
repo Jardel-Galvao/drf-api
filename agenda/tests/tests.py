@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 from agenda.models import Agendamento
 from django.contrib.auth.models import User
 from unittest import mock
+from django.core import mail
+from django.test import TestCase
+from agenda.tasks import gerar_relatorio, envia_email_com_anexo
+from django.core.mail import EmailMessage
 
 class TestListagemAgendamentos(APITestCase):
     def test_listagem_vazia(self):
@@ -177,3 +181,14 @@ class TestGetHorarios(APITestCase):
     def test_quando_data_e_dia_comum_retorna_lista_com_horario(self, _):
         response = self.client.get("/api/horarios/?data=2023-10-03")
         self.assertNotEqual(response.content, b'[]')
+
+class TestEnvioRelatorioEmail(TestCase):
+    def test_envio_email(self):
+        mail.send_mail(
+            'Subject here', 'Here is the message.',
+            'from@example.com', ['to@example.com'],
+            fail_silently=False,
+        )
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, 'Subject here')
